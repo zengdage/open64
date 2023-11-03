@@ -1262,7 +1262,7 @@ public:
       }
       return GetLVPtrTy();
     } else if (MTYPE_is_str(mtype)) {
-      FmtAssert(TY_kind(idx) == KIND_ARRAY, ("Wty2llvmty: constant string should be array"));
+      FmtAssert(TY_kind(idx) == KIND_ARRAY || (TY_kind(idx) == KIND_SCALAR), ("Wty2llvmty: constant string should be array"));
       auto array_ty = Get_wty2lvty(TY_IDX_index(idx), idx);
       return array_ty;
     } else {
@@ -6408,17 +6408,21 @@ LVCONST *WHIRL2llvm::INITV2llvm(const INITV &initv, TY_IDX ty_idx) {
         INITV &initv0 = Initv_Table[idx];
         if (INITV_kind(initv0) != INITVKIND_PAD) {
           elem = INITV2llvm(initv0, elem_ty);
+          if (elem != nullptr) vals.push_back(elem);
         } else {
           if ((initv0.Pad() % elem_size) == 0) {
             elem = INITV2llvm4zero(initv0, elem_ty);
+            UINT64 padlen = initv0.Pad() / elem_size;
+            for(UINT64 i = 0; i < padlen; i++)
+              if (elem != nullptr) vals.push_back(elem);
           } else {
             FmtAssert(FALSE, ("INITV2llvm: PAD in array NYI"));
           }
         }
-        if (elem != nullptr) vals.push_back(elem);
         idx = INITV_next(initv0);
       }
 
+      std::vector<LVCONST *> new_vals;
       LVTY *lv_elem_ty = lv_array_ty->getElementType();
       for (std::size_t i = 0; i < vals.size(); i++) {
         LVTY *val_ty = vals[i]->getType();
@@ -6426,12 +6430,26 @@ LVCONST *WHIRL2llvm::INITV2llvm(const INITV &initv, TY_IDX ty_idx) {
           // handle different type
           if (val_ty->isPointerTy() && lv_elem_ty->isPointerTy()) {
             vals[i] = llvm::ConstantExpr::getBitCast(vals[i], lv_elem_ty);
+            new_vals.push_back(vals[i]);
+          } else if (val_ty->isArrayTy()) {
+            LVTY *val_elem_ty = val_ty->getArrayElementType();
+            if (val_elem_ty != lv_elem_ty) {
+              FmtAssert(FALSE, ("INITV2llvm: different type NYI"));
+            } else {
+              auto *val = llvm::dyn_cast<llvm::ConstantDataArray>(vals[i]);
+              for(int i = 0; i < val->getNumElements(); i++) {
+                LVCONST *it = val->getAggregateElement(i);
+                new_vals.push_back(it);
+              }
+            }
           } else {
             FmtAssert(FALSE, ("INITV2llvm: different type NYI"));
           }
+        } else {
+          new_vals.push_back(vals[i]);
         }
       }
-      init = llvm::ConstantArray::get(lv_array_ty, vals);
+      init = llvm::ConstantArray::get(lv_array_ty, new_vals);
     } else {
       FmtAssert(ty_kind == KIND_STRUCT,
          ("INITV2llvm: current type is(%s %u), should be struct type", TY_name(ty_idx), ty_idx));
