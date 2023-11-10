@@ -116,6 +116,7 @@ BOOL Run_vsaopt = FALSE;      // hack to workaround undefine since
 # define Is_True(a, b)  ((void)1)
 #endif
 
+#define ALIGNMENT_DOWN(a, size) (a & (~(size-1)))
 
 static INT Compiler_Line = 0;
 static const char *Compiler_File = NULL;
@@ -4220,6 +4221,13 @@ WHIRL2llvm::WN2llvmSymAct(WN *wn, ACTION act, LVVAL *rhs)
     }  // end of GLOBAL_SYMTAB
     case SCLASS_FORMAL: {
       LVALC *arg_addr = nullptr;
+
+      if (Fix_TY_mtype(WN_type(wn)) != MTYPE_UNKNOWN) {
+        PLOC ploc = Get_Input_Parameter_Location(WN_type(wn));
+        if (Mload_ty(WN_type(wn)))
+          offset = ALIGNMENT_DOWN(offset, PLOC_size(ploc));
+      }
+
       CONSTSTR var = Adjust_parm_name(varname, offset);
       BOOL on_stack = FALSE;
       TY_IDX parmtype = Find_parm_type(var, &on_stack);
