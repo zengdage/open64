@@ -4197,7 +4197,7 @@ WHIRL2llvm::WN2llvmSymAct(WN *wn, ACTION act, LVVAL *rhs)
         arg_addr = Get_locvar(reg_name.c_str()).second;
         if (arg_addr == NULL) {  // unlikely reachable condition in .O file
           // create a.addr for argument a
-          auto lv_arg = Get_arg_by_name(varname);
+          auto lv_arg = Get_arg_by_name(var.c_str());
           if (act == ACT_LD) {
             if (Mload_ty(ty_idx)) {
               arg_addr = Create_locvar(TY_mtype(parmtype), parmtype, nullptr, reg_name.c_str()).second;
@@ -4267,7 +4267,7 @@ WHIRL2llvm::WN2llvmSymAct(WN *wn, ACTION act, LVVAL *rhs)
           store->setAlignment(llvm::Align(TY_align(WN_ty(wn))));
           return store;
         } else {
-          LVVAL *arg = Get_arg_by_name(varname);
+          LVVAL *arg = Get_arg_by_name(var.c_str());
           arg = HandleStoreDifferentType(wn, arg, arg_addr->getAllocatedType(), is_signed);
           auto store = Lvbuilder()->CreateStore(arg, arg_addr);
           store->setAlignment(llvm::Align(TY_align(WN_ty(wn))));
