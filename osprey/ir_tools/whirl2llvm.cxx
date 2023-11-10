@@ -3588,7 +3588,9 @@ WHIRL2llvm::Handle_intrn_call(WN *wn) {
     case INTRN_F8COS:   func_name = "cos";     break;
     case INTRN_STRLEN:  func_name = "strlen";  break;
     case INTRN_STRCPY:  func_name = "strcpy";  break;
+    case INTRN_STRNCPY: func_name = "strncpy"; break;
     case INTRN_STRCMP:  func_name = "strcmp";  break;
+    case INTRN_STRNCMP: func_name = "strncmp"; break;
     case INTRN_MEMCPY:  func_name = "memcpy";  break;
     case INTRN_MEMSET:  func_name = "memset";  break;
     case INTRN_MEMCMP:  func_name = "memcmp";  break;
@@ -5798,7 +5800,9 @@ WHIRL2llvm::STMT2llvm(WN *wn, W2LBB *lvbb)
       case INTRN_MEMCPY:
       case INTRN_MEMSET:
       case INTRN_STRCPY:
+      case INTRN_STRNCPY:
       case INTRN_STRCMP:
+      case INTRN_STRNCMP:
       case INTRN_STRLEN:
       case INTRN_MEMCCPY:
       case INTRN_MEMMOVE: {
