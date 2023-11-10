@@ -4543,7 +4543,7 @@ void ST2llvm::operator() (UINT idx, ST *st) const {
       if (INITV_IDX val = ST_has_initv(st)) {
         gvar->setInitializer(whirl2llvm->INITV2llvm(Initv_Table[val], ST_type(st)));
       } else {
-        SetZeroInitializer(gvar, gvar->getType(), st);
+        SetZeroInitializer(gvar, gvar->getValueType(), st);
       }
 
       if (ST_is_const_var(st)) {
