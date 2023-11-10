@@ -1983,6 +1983,13 @@ CFG::if_convert(WN *wn)
     WN_kid0(store) = sel;
     WN_Set_Linenum(store, WN_Get_Linenum(wn));
 
+    if (empty_then ? then_wn : else_wn) {
+      if (WN * other_stmt = WN_first(empty_then ? then_wn : else_wn)) {
+        INT32 vertex = WN_get_dep_graph_vertex(other_stmt);
+        WN_detach_wn_from_dep_graph(vertex);
+      }
+    }
+
     WN *block = WN_CreateBlock();
     WN_INSERT_BlockFirst(block, store);
     if (if_select_return) {
