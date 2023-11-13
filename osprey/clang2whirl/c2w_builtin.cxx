@@ -103,6 +103,7 @@ WhirlExprBuilder::InitializeBuiltinTable() {
   BuiltinTable[BIstrcpy]  = INTRN_STRCPY;
   BuiltinTable[BIstrlen]  = INTRN_STRLEN;
   BuiltinTable[BIstrncpy] = INTRN_STRNCPY;
+  BuiltinTable[BIexit]    = INTRN_I4EXIT;
 
   // __sync_xxx builtin table
   // always use _I1 and adjust intrinsic op according to the pointee size

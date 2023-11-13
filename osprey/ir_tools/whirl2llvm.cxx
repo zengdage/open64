@@ -3596,6 +3596,7 @@ WHIRL2llvm::Handle_intrn_call(WN *wn) {
     case INTRN_MEMCMP:  func_name = "memcmp";  break;
     case INTRN_MEMCCPY: func_name = "memccpy"; break;
     case INTRN_MEMMOVE: func_name = "memmove"; break;
+    case INTRN_I4EXIT:  func_name = "exit"; break;
     default:
       FmtAssert(FALSE, ("WHIRL2llvm::Handle_intrn_call: unexpected intrinsic"));
   }
@@ -3616,7 +3617,11 @@ WHIRL2llvm::Handle_intrn_call(WN *wn) {
 
   LVCALL *call = Lvbuilder()->CreateCall(lvfuncty, func, arglist);
   SetCallInstAttrs(call, func);
-  
+
+  if (func->doesNotReturn()) {
+    Lvbuilder()->CreateUnreachable();
+  }
+
   // OPR_INTRINSIC_CALL is a STMT, but OPR_INTRINSIC is an EXPR
   if (is_stmt) {
     // Create the name of PREG that store value from return register
@@ -5810,9 +5815,12 @@ WHIRL2llvm::STMT2llvm(WN *wn, W2LBB *lvbb)
         FmtAssert(res == nullptr, ("STMT2llvm: INTRINSIC_CALL should return nullptr"));
         break;
       }
+      case INTRN_I4EXIT:
       case INTRN_VEXIT: {
         // __builtin_unreachable()
         // do nothing for now
+        LVVAL *res = Handle_intrn_call(wn);
+        FmtAssert(res == nullptr, ("STMT2llvm: INTRINSIC_CALL should return nullptr"));
         break;
       }
       default: {
