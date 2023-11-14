@@ -2032,32 +2032,54 @@ public:
   void        Handle_arg_diff_ty(WN *wn, LVVALVEC &arglist, const LVFUNC *lvfunc) {
     const LVFUNCTY *lvfuncty = lvfunc->getFunctionType();
     Is_Trace(Tracing_enabled, (TFile, "Handle_arg_diff_ty: adjust actual args type in keeping with formal type:\n"));
-    FmtAssert(arglist.size() == lvfuncty->getNumParams(),
-      ("Handle_arg_diff_ty: Function %s, parameter number is wrong, expected %d got %d.",
-        lvfunc->getName().str().c_str(), lvfuncty->getNumParams(), arglist.size()));
+    OPERATOR opr = WN_operator(wn);
+    if ((opr != OPR_ICALL && opr != OPR_VFCALL) ||
+        ((opr == OPR_ICALL || opr == OPR_VFCALL) && TY_has_prototype(WN_ty(wn))) ||
+        lvfuncty->getNumParams()) {
+      FmtAssert(arglist.size() == lvfuncty->getNumParams(),
+        ("Handle_arg_diff_ty: Parameter number is wrong, expected %d got %d.",
+          lvfuncty->getNumParams(), arglist.size()));
+    }
 
     for (int i = 0; i < arglist.size(); i++) {
-      auto formal_ty = lvfuncty->getParamType(i);
       Is_True(arglist[i], ("Handle_arg_diff_ty: actual arg (count %d) is null", i));
-      bool is_signed = lvfunc->getArg(i)->hasSExtAttr();
-      arglist[i] = CastToTargetType(wn, arglist[i], formal_ty, is_signed);
+      if ((opr != OPR_ICALL && opr != OPR_VFCALL) ||
+          ((opr == OPR_ICALL || opr == OPR_VFCALL) && TY_has_prototype(WN_ty(wn))) ||
+          lvfuncty->getNumParams()) {
+        auto formal_ty = lvfuncty->getParamType(i);
+        bool is_signed = lvfunc->getArg(i)->hasSExtAttr();
+        arglist[i] = CastToTargetType(wn, arglist[i], formal_ty, is_signed);
+      } else {
+        auto formal_ty = llvm::IntegerType::get(Context(), 32);
+        arglist[i] = CastToTargetType(wn, arglist[i], formal_ty, FALSE);
+      }
     }
   }
 
   void        Handle_arg_diff_ty(WN *wn, LVVALVEC &arglist, const LVFUNCTY *lvfuncty) {
     Is_Trace(Tracing_enabled, (TFile, "Handle_arg_diff_ty: adjust actual args type in keeping with formal type:\n"));
-    FmtAssert(arglist.size() == lvfuncty->getNumParams(),
-      ("Handle_arg_diff_ty: Parameter number is wrong, expected %d got %d.",
-        lvfuncty->getNumParams(), arglist.size()));
+    OPERATOR opr = WN_operator(wn);
+    if ((opr != OPR_ICALL && opr != OPR_VFCALL) ||
+        ((opr == OPR_ICALL || opr == OPR_VFCALL) && TY_has_prototype(WN_ty(wn))) ||
+        lvfuncty->getNumParams()) {
+      FmtAssert(arglist.size() == lvfuncty->getNumParams(),
+        ("Handle_arg_diff_ty: Parameter number is wrong, expected %d got %d.",
+          lvfuncty->getNumParams(), arglist.size()));
+    }
 
     for (int i = 0; i < arglist.size(); i++) {
-      auto formal_ty = lvfuncty->getParamType(i);
       Is_True(arglist[i], ("Handle_arg_diff_ty: actual arg (count %d) is null", i));
-      
-      // FIXME: handle the case of function pointer
-      // bool is_signed = lvfunc->getArg(i)->hasSExtAttr();
-
-      arglist[i] = CastToTargetType(wn, arglist[i], formal_ty, /* FIXME: collect signext flag. */FALSE);
+      if ((opr != OPR_ICALL && opr != OPR_VFCALL) ||
+          ((opr == OPR_ICALL || opr == OPR_VFCALL) && TY_has_prototype(WN_ty(wn))) ||
+          lvfuncty->getNumParams()) {
+        auto formal_ty = lvfuncty->getParamType(i);
+        // FIXME: handle the case of function pointer
+        // bool is_signed = lvfunc->getArg(i)->hasSExtAttr();
+        arglist[i] = CastToTargetType(wn, arglist[i], formal_ty, /* FIXME: collect signext flag. */FALSE);
+      } else {
+        auto formal_ty = llvm::IntegerType::get(Context(), 32);
+        arglist[i] = CastToTargetType(wn, arglist[i], formal_ty, FALSE);
+      }
     }
   }
 
