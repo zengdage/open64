@@ -4226,13 +4226,13 @@ WHIRL2llvm::WN2llvmSymAct(WN *wn, ACTION act, LVVAL *rhs)
           // create a.addr for argument a
           auto lv_arg = Get_arg_by_name(var.c_str());
           if (act == ACT_LD) {
-            if (Mload_ty(ty_idx)) {
+            if (Mload_ty(ty_idx) || MTYPE_is_complex(TY_mtype(Ty_Table[ty_idx]))) {
               arg_addr = Create_locvar(TY_mtype(parmtype), parmtype, nullptr, reg_name.c_str()).second;
             } else {
               arg_addr = Create_locvar(WN_desc(wn), ty_idx, nullptr, reg_name.c_str()).second;
             }
           } else { // ACT_LDA, why different?  Shouldn't only load it or not?
-            if (Mload_ty(ty_idx)) {
+            if (Mload_ty(ty_idx) || MTYPE_is_complex(TY_mtype(Ty_Table[ty_idx]))) {
               need_load = true;
               ty_idx = Make_Pointer_Type(ty_idx);
               arg_addr = Create_locvar(TY_mtype(ty_idx), ty_idx, nullptr, reg_name.c_str()).second;
@@ -4280,7 +4280,7 @@ WHIRL2llvm::WN2llvmSymAct(WN *wn, ACTION act, LVVAL *rhs)
       case ACT_STR: {
         arg_addr = Get_locvar(reg_name.c_str()).second;
         if (arg_addr == nullptr) {
-            if (Mload_ty(ty_idx))
+            if (Mload_ty(ty_idx) || MTYPE_is_complex(TY_mtype(Ty_Table[ty_idx])))
               arg_addr = Create_locvar(TY_mtype(parmtype), parmtype, nullptr, reg_name.c_str()).second;
             else
               arg_addr = Create_locvar(WN_desc(wn), ty_idx, nullptr, reg_name.c_str()).second;
