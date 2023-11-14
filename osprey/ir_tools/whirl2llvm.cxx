@@ -1894,14 +1894,14 @@ public:
       if (lhs_ty->getIntegerBitWidth() == 1) is_signed = false;
 
       FmtAssert(rhs_ty->isIntegerTy(), ("CreateExt: rhs should be integer type"));
-      FmtAssert(lhs_ty->getIntegerBitWidth() < rhs_ty->getIntegerBitWidth(), ("CreateExt: lhs width should be shorter than lhs"));
+      FmtAssert(lhs_ty->getIntegerBitWidth() < rhs_ty->getIntegerBitWidth(), ("CreateExt: lhs width should be shorter than rhs"));
       if (is_signed) 
         return Lvbuilder()->CreateSExt(lhs, rhs_ty);
       else
         return Lvbuilder()->CreateZExt(lhs, rhs_ty);
     } else if (lhs_ty->isFloatingPointTy()) {
-      FmtAssert(rhs_ty->isIntegerTy(), ("CreateExt: rhs should be floating type"));
-      FmtAssert(lhs_ty->getTypeID() < rhs_ty->getTypeID(), ("CreateExt: lhs width should be shorter than lhs"));
+      FmtAssert(rhs_ty->isDoubleTy(), ("CreateExt: rhs should be floating type"));
+      FmtAssert(lhs_ty->getTypeID() < rhs_ty->getTypeID(), ("CreateExt: lhs width should be shorter than rhs"));
       return Lvbuilder()->CreateFPExt(lhs, rhs_ty);
     } else {
       FmtAssert(FALSE, ("CreateExt: can't handle current type"));
