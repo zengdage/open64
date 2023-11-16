@@ -3863,40 +3863,48 @@ LVALC*
 WHIRL2llvm::Collect_retval_pregname(WN *wn)  {
   WN *retv_wn = WN_next(wn);
   TYALC ret_reg;
+  BOOL store_ret_v = false;
 
   // Handles output from Low WHIRL first, High WHIRL later
   if (WN_operator(retv_wn) == OPR_STID) {
-    // create slot for return value
-    retv_wn = Ref_func_retreg(retv_wn);
-    Is_Trace(Tracing_enabled, (TFile, "Collect_retval_pregname but also Get_preg for : "));
-    Is_Trace_cmd(Tracing_enabled, fdump_wn(TFile, retv_wn));
-    if (retv_wn == nullptr)
-      return nullptr;
-    ret_reg = Get_preg(retv_wn, TRUE);// WN_desc(WN_kid0(retv_wn)), WN_ty(WN_kid0(retv_wn)));
-  }
-  else {
-    // The WN_next does not have the save return value statement due to
-    // forward substitution optimization in earlier phases
-    // compose the return preg from the return type of call node
-    FmtAssert(OPERATOR_is_call(WN_operator(wn)) || WN_operator(wn) == OPR_INTRINSIC_OP,
-              ("Collect_retval_pregname: unexpected operator"));
-    TYPE_ID mtype = WN_rtype(wn);
-    if ((OPERATOR_is_call(WN_operator(wn)) ||
-         WN_operator(wn) == OPR_INTRINSIC_OP) &&
-        ! MTYPE_is_m(mtype)) {
-      PREG_NUM pregno;
-      mtype = Adjust_return_ldid_mtype(mtype, pregno);
-      retv_wn = WN_LdidPreg( mtype, pregno);
+    for (UINT i = 0; i < WN_kid_count(retv_wn); i++) {
+      if(WN_operator(WN_kid(retv_wn, i)) == OPR_LDID) {
+        if (IsCallResReg(WN_kid(retv_wn, i))) {
+          store_ret_v = true;
+        }
+      }
     }
-    else
+    if (store_ret_v) {
+      // create slot for return value
       retv_wn = Ref_func_retreg(retv_wn);
-    if (retv_wn){
-      ret_reg = Get_preg(retv_wn, TRUE);
-    } else {
-      return nullptr;
-      // FmtAssert(FALSE, ("Collect_retval_pregname: unexpected Successor of func call %s",
-      //                   OPERATOR2name(WN_operator(retv_wn))));
+      Is_Trace(Tracing_enabled, (TFile, "Collect_retval_pregname but also Get_preg for : "));
+      Is_Trace_cmd(Tracing_enabled, fdump_wn(TFile, retv_wn));
+      if (retv_wn == nullptr)
+        return nullptr;
+      ret_reg = Get_preg(retv_wn, TRUE);// WN_desc(WN_kid0(retv_wn)), WN_ty(WN_kid0(retv_wn)));
+      return ret_reg.second;
     }
+  }
+
+  // The WN_next does not have the save return value statement due to
+  // forward substitution optimization in earlier phases
+  // compose the return preg from the return type of call node
+  FmtAssert(OPERATOR_is_call(WN_operator(wn)) || WN_operator(wn) == OPR_INTRINSIC_OP,
+            ("Collect_retval_pregname: unexpected operator"));
+  TYPE_ID mtype = WN_rtype(wn);
+  if ((OPERATOR_is_call(WN_operator(wn)) ||
+      WN_operator(wn) == OPR_INTRINSIC_OP) &&
+      ! MTYPE_is_m(mtype)) {
+    PREG_NUM pregno;
+    mtype = Adjust_return_ldid_mtype(mtype, pregno);
+    retv_wn = WN_LdidPreg( mtype, pregno);
+  } else
+    retv_wn = Ref_func_retreg(retv_wn);
+
+  if (retv_wn){
+    ret_reg = Get_preg(retv_wn, TRUE);
+  } else {
+    return nullptr;
   }
   return ret_reg.second;
 }
