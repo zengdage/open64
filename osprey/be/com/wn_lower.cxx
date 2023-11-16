@@ -126,6 +126,7 @@
 #include "uwasm_nat_util.h"     // for UWASM
 #include "config_wopt.h"        // for WOPT_Enable_Simple_If_Conv
 #include "opt_vsa_report.h"
+#include "dep_graph.h"
 
 #ifdef TARG_X8664
 #include <ext/hash_set>
@@ -1752,6 +1753,12 @@ static void lower_complex_maps(WN *orig, WN *real, WN *imag,
     WN_MAP32_Set(lowering_parity_map, imag, PARITY_COMPLEX_IMAG);
   }
 
+  ARRAY_DIRECTED_GRAPH16 *Dep_Graph = (ARRAY_DIRECTED_GRAPH16 *) C_Dep_Graph();
+  if (Dep_Graph != NULL) {
+    INT32 vertex = Dep_Graph->Get_Vertex(orig);
+    if (vertex != 0)
+      Current_Dep_Graph->Clear_Map_For_Vertex((VINDEX16) vertex);
+  }
 }
 
 static WN *add_to_base(WN **base, WN *tree)
