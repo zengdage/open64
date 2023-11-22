@@ -1521,9 +1521,16 @@ Are_different(CODEREP *cr1, CODEREP *cr2)
 
       return FALSE;
     }
-    Is_True(FALSE, ("EXP_WORKLST::Are_different:  must not reach here."));
+    if (cr1->Opr() == OPR_ILOAD ) {
+      if ( cr1->Op() != cr2->Op() ) return TRUE;
+
+      if (Are_different( cr1->Ilod_base(), cr2->Ilod_base()))
+        return TRUE;
+      return TRUE;
+    }
+    // Is_True(FALSE, ("EXP_WORKLST::Are_different:  must not reach here."));
   case CK_OP:
-    Is_True(FALSE, ("EXP_WORKLST::Are_different:  must not reach here."));
+    // Is_True(FALSE, ("EXP_WORKLST::Are_different:  must not reach here."));
   case CK_LDA:
   case CK_CONST:
   case CK_RCONST:
