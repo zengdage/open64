@@ -1054,7 +1054,7 @@ private:
     if (str1[cmp_len] != FIELD_SEPARATOR &&
         str2[cmp_len] != FIELD_SEPARATOR)
       return FALSE;
-    return str1 == str2;
+    return !strncmp(str1.c_str(), str2.c_str(), cmp_len);
   }
 
   CONSTSTR    Adjust_parm_name(char *name, INT32 modifier) {
