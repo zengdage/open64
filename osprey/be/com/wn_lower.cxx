@@ -15663,6 +15663,7 @@ static WN *lower_entry(WN *tree, LOWER_ACTIONS actions)
   {
     ploc = lower_entry_formals(block, tree, actions);
 
+#if 0
     if (TY_is_varargs(Ty_Table[PU_prototype(Pu_Table[ST_pu(WN_st(tree))])]))
     {
      /*
@@ -15755,6 +15756,7 @@ static WN *lower_entry(WN *tree, LOWER_ACTIONS actions)
       }
 #endif
     }
+#endif
 
    /*
     * add initialization code for trapuv

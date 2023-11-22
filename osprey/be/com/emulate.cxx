@@ -5426,7 +5426,7 @@ static WN *emulate_intrinsic_op(WN *block, WN *tree)
   case INTRN_VA_START:
     if (strcmp(Get_Error_Phase(), "VHO Processing") == 0)
       break; // bug 8525: cannot lower va_start at VHO time
-    return em_x8664_va_start(block, WN_arg(tree, 0));
+    //return em_x8664_va_start(block, WN_arg(tree, 0));
     break;
 #endif
 
