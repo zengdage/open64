@@ -4375,14 +4375,12 @@ WHIRL2llvm::WN2llvmSymAct(WN *wn, ACTION act, LVVAL *rhs)
         LVVAL *addr = var.second;
         if (offset != 0) Gen_displacement(wn, &addr);
         FmtAssert(opr == OPR_LDID, ("WN2llvmSymAct: WN node should be LDID"));
-        LVTY *ld_ty = Wty2llvmty(WN_desc(wn), 0);
-#if 0
-        if (MTYPE_is_m(WN_desc(wn))) {
+        LVTY *ld_ty = nullptr;
+        if (MTYPE_is_m(WN_desc(wn)) || MTYPE_is_complex(WN_desc(wn))) {
           ld_ty = Wty2llvmty(WN_desc(wn), WN_ty(wn));
         } else {
           ld_ty = Wty2llvmty(WN_desc(wn), 0);
         }
-#endif
         auto load = Lvbuilder()->CreateLoad(ld_ty, addr);
         load->setAlignment(llvm::Align(TY_align(WN_ty(wn))));
         return load;
@@ -5050,7 +5048,10 @@ LVVAL *WHIRL2llvm::EXPR2llvm(WN *wn, WN *parent) {
   case OPR_LDID: {
     auto rtype = WN_rtype(wn);
     LVTY *lv_rtype;
-    if (WN_opcode(wn) == OPC_MMLDID) {
+    if (WN_opcode(wn) == OPC_MMLDID ||
+        WN_opcode(wn) == OPC_C4C4LDID ||
+        WN_opcode(wn) == OPC_C8C8LDID ||
+        WN_opcode(wn) == OPC_CQCQLDID) {
       lv_rtype = Wty2llvmty(rtype, WN_ty(wn));
     }
     else {
