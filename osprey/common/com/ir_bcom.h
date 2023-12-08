@@ -82,10 +82,10 @@ ir_b_create_map (Output_File *fl);
 
 #if defined(KEY) && !defined(FRONT_END) && !defined(IR_TOOLS)
 extern off_t
-ir_b_write_tree (WN *, off_t, Output_File *, WN_MAP, PU_Info *);
+ir_b_write_tree (WN *, off_t, Output_File *, WN_MAP, PU_Info *, struct ALIAS_MANAGER *alias_mgr = NULL);
 #else
 extern off_t
-ir_b_write_tree (WN *node, off_t base_offset, Output_File *fl, WN_MAP off_map);
+ir_b_write_tree (WN *node, off_t base_offset, Output_File *fl, WN_MAP off_map, struct ALIAS_MANAGER *alias_mgr = NULL);
 #endif
 
 extern off_t

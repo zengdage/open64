@@ -310,6 +310,13 @@ friend class POINTS_TO;
 const IDTYPE OPTIMISTIC_AC_ID  = 0;
 const IDTYPE PESSIMISTIC_AC_ID = 1;
 
+struct Alias_Result_Map
+{
+  INT32 src;
+  INT32 dst;
+  INT32 result;
+};
+
 typedef enum {
   AR_INVALID,            
   AR_NOT_ALIAS,

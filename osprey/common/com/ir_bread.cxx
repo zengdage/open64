@@ -98,6 +98,7 @@
 #include "ir_bcom.h"
 #include "ir_bread.h"
 #include "config_opt.h"
+#include "cxx_template.h"
 
 #if defined(BACK_END)
 #include "xstats.h"
@@ -1326,6 +1327,88 @@ WN_MAP_put(WN_MAP wn_map, WN *wn, void *value)
   WN_MAP_Set(wn_map, wn, value);
 }
 
+std::vector<INT> get_alias_result_map(PU_Info *pu, WN *wn)
+{
+  INT i;
+  std::vector<INT> new_vals;
+
+  if (!pu)
+    return new_vals;
+
+  if (PU_Info_state(pu, WT_ALIAS_POINTS_TO) == Subsect_Missing)
+    return new_vals;
+
+  if (PU_Info_state (pu, WT_ALIAS_CLASS_ID) == Subsect_Missing)
+    return new_vals;
+
+  Elf64_Word size = PU_Info_subsect_size(pu, WT_ALIAS_POINTS_TO);
+  INT number = size / sizeof(struct Alias_Result_Map);
+  struct Alias_Result_Map *_vec = (struct Alias_Result_Map*)PU_Info_alias_points_to_ptr(pu);
+  INT32 idx = WN_MAP32_Get(WN_MAP_ALIAS_CLASS_ID, wn);
+  if (idx >= 2) {
+    for(i = 0; i < number; i++) {
+      struct Alias_Result_Map *map = _vec + i;
+      if (map->src == idx) {
+        new_vals.push_back(map->src);
+        new_vals.push_back(map->dst);
+        new_vals.push_back(map->result);
+      } else if (map->dst == idx) {
+        new_vals.push_back(map->dst);
+        new_vals.push_back(map->src);
+        new_vals.push_back(map->result);
+      }
+    }
+  }
+  return new_vals;
+}
+
+static void* WN_get_POINTS_TO(void *handle, PU_Info *pu)
+{
+  Elf64_Word offset, size;
+  char *cur_addr, *end_addr, *tree_base;
+  INT i;
+  INT number;
+  Subsect_State st = PU_Info_state(pu, WT_ALIAS_POINTS_TO);
+
+  if (st == Subsect_Written)
+    return NULL;
+  if (st == Subsect_InMem)
+    return PU_Info_alias_points_to_ptr(pu);
+  if (st != Subsect_Exists)
+    return NULL;
+
+  offset = PU_Info_subsect_offset(pu, WT_ALIAS_POINTS_TO);
+  size = PU_Info_subsect_size(pu, WT_ALIAS_POINTS_TO);
+
+  OFFSET_AND_SIZE shdr = get_section (handle, SHT_MIPS_WHIRL, WT_PU_SECTION);
+  if (shdr.offset == 0) return (void *) (INTPTR) ERROR_RETURN;
+
+  if (offset + size >= shdr.size) {
+	errno = EINVAL;
+	return NULL;
+  }
+
+  /* find the start of the tree subsection */
+  tree_base = (char *) handle + shdr.offset + PU_Info_subsect_offset(pu, WT_TREE);
+
+  cur_addr = (char *)handle + shdr.offset + offset;
+  end_addr = cur_addr + size;
+  number = size / sizeof(struct Alias_Result_Map);
+
+  struct Alias_Result_Map *_vec = (struct Alias_Result_Map *) malloc(sizeof(struct Alias_Result_Map) * number);
+  memset(_vec, 0, sizeof(struct Alias_Result_Map) * number);
+  for(i = 0; i < number; i++) {
+    struct Alias_Result_Map *old = (struct Alias_Result_Map *)cur_addr;
+    *(_vec + i) = *old;
+    cur_addr += sizeof(struct Alias_Result_Map);
+  }
+
+  Set_PU_Info_alias_points_to_ptr(pu, _vec);
+  Set_PU_Info_state(pu, WT_ALIAS_POINTS_TO, Subsect_InMem);
+
+  return _vec;
+}
+
 template<class MAP_ENTRY_TYPE>
 static inline INT
 WN_read_generic_map(void           *handle,
@@ -1649,6 +1732,13 @@ Read_Local_Info (MEM_POOL *pool, PU_Info *pu)
 			 WT_ALIAS_CGNODE, WN_MAP_ALIAS_CGNODE) == -1) {
       ErrMsg ( EC_IR_Scn_Read, "alias cgnode map", local_ir_file);
     }
+
+    if (WN_get_INT32_map(local_fhandle, pu,
+			 WT_ALIAS_CLASS_ID, WN_MAP_ALIAS_CLASS_ID) == -1) {
+      ErrMsg ( EC_IR_Scn_Read, "alias class id map", local_ir_file);
+    }
+    WN_get_POINTS_TO(local_fhandle, pu);
+
     // Check if we have read in the WN to CGNodeId map
     if (PU_Info_state(pu, WT_ALIAS_CGNODE) == Subsect_InMem)
       Read_ALIAS_CGNODE_Map = TRUE;

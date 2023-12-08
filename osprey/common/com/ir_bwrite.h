@@ -57,6 +57,7 @@ extern BOOL Write_BE_Maps;
 extern BOOL Write_AC_INTERNAL_Map;
 extern BOOL Write_ALIAS_CLASS_Map;
 extern BOOL Write_ALIAS_CGNODE_Map;
+extern BOOL Write_ALIAS_CLASS_ID_Map;
 #endif /* BACK_END */
 
 
@@ -138,7 +139,7 @@ extern void WN_write_PU_Infos (PU_Info *pu_list, Output_File *fl);
  * prefetch pointers.
  */
 
-extern void WN_write_tree (PU_Info *pu, WN_MAP off_map, Output_File *fl);
+extern void WN_write_tree (PU_Info *pu, WN_MAP off_map, Output_File *fl, struct ALIAS_MANAGER *alias_mgr = NULL);
 extern void WN_write_symtab (PU_Info *pu, Output_File *fl);
 extern void WN_write_depgraph (PU_Info *pu, WN_MAP off_map, Output_File *fl);
 extern void WN_write_prefetch (PU_Info *pu, WN_MAP off_map, Output_File *fl);
@@ -164,7 +165,7 @@ extern void WN_write_SSA(PU_Info *pu, Output_File *fl);
  */
 
 extern Output_File *Open_Output_Info (char *output_file);
-extern void Write_PU_Info (PU_Info *pu);
+extern void Write_PU_Info (PU_Info *pu, struct ALIAS_MANAGER *alias_mgr = NULL);
 extern void Write_Global_Info (PU_Info *pu_tree);
 extern void Close_Output_Info (void);
 extern void WN_write_elf_symtab (const void* symtab, UINT64 size,

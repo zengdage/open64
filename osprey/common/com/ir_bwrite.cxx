@@ -109,11 +109,13 @@
 #include "instr_reader.h"
 #include "fb_whirl.h"			// for feedback stuff
 #include "ipa_be_write.h"
+#include "opt_alias_mgr.h"
 
 BOOL Write_BE_Maps = FALSE;
 BOOL Write_AC_INTERNAL_Map = FALSE;
 BOOL Write_ALIAS_CLASS_Map = FALSE;
 BOOL Write_ALIAS_CGNODE_Map = FALSE;
+BOOL Write_ALIAS_CLASS_ID_Map = FALSE;
 
 extern WN **prefetch_ldsts;
 extern INT num_prefetch_ldsts;
@@ -122,6 +124,10 @@ extern INT max_num_prefetch_ldsts;
 extern WN **alias_classes;
 extern INT num_alias_class_nodes;
 extern INT max_alias_class_nodes;
+
+extern WN **alias_classes_id;
+extern INT num_alias_class_id_nodes;
+extern INT max_alias_class_id_nodes;
 
 extern WN **alias_cgnodes;
 extern INT num_alias_cgnode_nodes;
@@ -135,7 +141,14 @@ extern "C" {
 extern void *C_Dep_Graph(void);
 extern void Depgraph_Write (void *depgraph, Output_File *fl, WN_MAP off_map);
 }
+
 #endif /* BACK_END */
+
+#ifndef __GNUC__
+#define __ALIGNOF(x) __builtin_alignof(x)
+#else
+#define __ALIGNOF(x) __alignof__(x)
+#endif // __GNUC__
 
 #define MMAP(addr, len, prot, flags, fd, off)				\
     mmap((void *)(addr), (size_t)(len), (int)(prot), (int)(flags),	\
@@ -556,7 +569,7 @@ WN_write_PU_Infos (PU_Info *pu_list, Output_File *fl)
  */
 
 void
-WN_write_tree (PU_Info *pu, WN_MAP off_map, Output_File *fl)
+WN_write_tree (PU_Info *pu, WN_MAP off_map, Output_File *fl, struct ALIAS_MANAGER *alias_mgr)
 {
     static const char *scn_name = "tree";
     UINT padding;
@@ -587,6 +600,15 @@ WN_write_tree (PU_Info *pu, WN_MAP off_map, Output_File *fl)
       alias_classes = NULL;
       num_alias_class_nodes = 0;
       max_alias_class_nodes = 0;
+    }
+
+    if (Write_ALIAS_CLASS_ID_Map) {
+      /* globals used to record nodes with alias classification
+       * information
+       */
+      alias_classes_id = NULL;
+      num_alias_class_id_nodes = 0;
+      max_alias_class_id_nodes = 0;
     }
 
     if (Write_ALIAS_CGNODE_Map) {
@@ -626,9 +648,9 @@ WN_write_tree (PU_Info *pu, WN_MAP off_map, Output_File *fl)
     tree_base = fl->file_size;
 
 #if defined(KEY) && !defined(FRONT_END) && !defined(IR_TOOLS)
-    this_tree = ir_b_write_tree (tree, tree_base, fl, off_map, pu);
+    this_tree = ir_b_write_tree (tree, tree_base, fl, off_map, pu, alias_mgr);
 #else
-    this_tree = ir_b_write_tree (tree, tree_base, fl, off_map);
+    this_tree = ir_b_write_tree (tree, tree_base, fl, off_map, alias_mgr);
 #endif
 
     /* save the offset to the first node */
@@ -657,6 +679,15 @@ WN_write_tree (PU_Info *pu, WN_MAP off_map, Output_File *fl)
       } else {
         Set_PU_Info_state(pu, WT_ALIAS_CGNODE, Subsect_Missing);
       }
+    }
+
+    if (Write_ALIAS_CLASS_ID_Map && num_alias_class_id_nodes > 0) {
+      alias_classes_id[num_alias_class_id_nodes] = NULL;
+      Set_PU_Info_alias_class_id_ptr(pu, alias_classes_id);
+      Set_PU_Info_state(pu, WT_ALIAS_CLASS_ID, Subsect_InMem);
+
+      Set_PU_Info_alias_points_to_ptr(pu, alias_mgr);
+      Set_PU_Info_state(pu, WT_ALIAS_POINTS_TO, Subsect_InMem);
     }
 
     if (Write_AC_INTERNAL_Map && num_ac_internal_nodes > 0) {
@@ -1043,7 +1074,6 @@ IPA_write_summary (void (*IPA_irb_write_summary) (Output_File*),
 
 }
 
-
 /*
  * Write out the dependence graph mapping.  Dependence graphs are written
  * to PU subsections.  The size and offset of the output subsection are
@@ -1317,6 +1347,51 @@ WN_write_voidptr_map(PU_Info        *pu,
 }
 
 void
+WN_write_POINTS_TO (PU_Info *pu, WN_MAP off_map, Output_File *fl)
+{
+  off_t base;
+  INT i;
+  struct ALIAS_MANAGER *alias_mgr = NULL;
+  Section *cur_section = fl->cur_section;
+
+  if (PU_Info_state(pu, WT_ALIAS_POINTS_TO) == Subsect_Missing)
+    return;
+
+  if (PU_Info_state (pu, WT_ALIAS_CLASS_ID) == Subsect_Missing)
+    return;
+
+  if (strcmp(cur_section->name, MIPS_WHIRL_PU_SECTION) != 0 ||
+	  PU_Info_state(pu, WT_ALIAS_POINTS_TO) != Subsect_InMem)
+    ErrMsg (EC_IR_Scn_Write, "alias points to", fl->file_name);
+
+  fl->file_size = ir_b_align(fl->file_size, __ALIGNOF(struct Alias_Result_Map), 0);
+  base = fl->file_size;
+
+  alias_mgr = (struct ALIAS_MANAGER *)PU_Info_alias_points_to_ptr(pu);
+
+  for (i = alias_mgr->Preg_id() + 1; i <= alias_mgr->Last_alias_id(); i++) {
+    for (INT32 oldid = alias_mgr->Preg_id() + 1; oldid <= i; oldid++) {
+      ALIAS_KIND alias_kind = alias_mgr->Rule()->Aliased_Memop(
+          alias_mgr->Pt(oldid), alias_mgr->Pt(i),
+          alias_mgr->Pt(oldid)->Ty(), alias_mgr->Pt(i)->Ty(), TRUE);
+      struct Alias_Result_Map result;
+      result.src = i;
+      result.dst = oldid;
+      result.result = alias_kind.Alias_kind();
+      (void) ir_b_save_buf ((void *) &result,
+          sizeof(struct Alias_Result_Map),
+          __ALIGNOF(struct Alias_Result_Map),
+          0,
+          fl);
+    }
+  }
+
+  Set_PU_Info_state(pu, WT_ALIAS_POINTS_TO, Subsect_Written);
+  PU_Info_subsect_size(pu, WT_ALIAS_POINTS_TO) = fl->file_size - base;
+  PU_Info_subsect_offset(pu, WT_ALIAS_POINTS_TO) = base - cur_section->shdr.sh_offset;
+}
+
+void
 IPA_copy_PU (PU_Info *pu, char *section_base, Output_File *outfile)
 {
     char *subsect;
@@ -1502,7 +1577,7 @@ WN_close_file (void *this_fl)
 static Output_File *ir_output;
 
 void
-Write_PU_Info (PU_Info *pu)
+Write_PU_Info (PU_Info *pu, struct ALIAS_MANAGER *alias_mgr)
 {
     Temporary_Error_Phase ephase("Writing WHIRL file");
 
@@ -1522,7 +1597,7 @@ Write_PU_Info (PU_Info *pu)
     }
 #endif
 
-    WN_write_tree (pu, off_map, ir_output);
+    WN_write_tree (pu, off_map, ir_output, alias_mgr);
 
 #ifdef BACK_END
     /*write out the whirl ssa info*/
@@ -1545,6 +1620,12 @@ Write_PU_Info (PU_Info *pu)
 	if (Write_ALIAS_CGNODE_Map) {
 	  WN_write_INT32_map(pu, off_map, ir_output, WT_ALIAS_CGNODE,
 			     WN_MAP_ALIAS_CGNODE, "alias cgnode map");
+	}
+
+	if (Write_ALIAS_CLASS_ID_Map && alias_mgr) {
+	  WN_write_INT32_map(pu, off_map, ir_output, WT_ALIAS_CLASS_ID,
+			     alias_mgr->Map(), "alias class id map");
+	  WN_write_POINTS_TO(pu, off_map, ir_output);
 	}
 
 	WN_MAP_Delete(off_map);

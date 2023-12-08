@@ -105,6 +105,7 @@
 #include "file_util.h"		    /* for New_Extension () */
 #include "xstats.h"		    /* for Print_Stats () */
 #include "data_layout.h"	    /* for Initialize_Stack_Frame() */
+#include "opt_alias_mgr.h"      /* for ALIAS_MANAGER stuff */
 #include "opt_alias_interface.h"    /* for ALIAS_MANAGER stuff */
 #include "wn_lower.h"		    /* for WN_Lower() */
 #include "cgdriver.h"		    /* for CG_Init, etc. */
@@ -598,6 +599,7 @@ Phase_Init (void)
     }
     if (need_wopt_output) {
 	Write_ALIAS_CLASS_Map = TRUE;
+	Write_ALIAS_CLASS_ID_Map = TRUE;
 	Write_BE_Maps = TRUE;
 	ir_output = Open_Output_Info(New_Extension(output_file_name,".O"));
     }
@@ -1145,7 +1147,7 @@ Do_WOPT_and_CG_with_Regions (PU_Info *current_pu, WN *pu)
       /* because REGION_remove_and_mark does nothing for pu	   */
       if (need_wopt_output && REGION_CS_ITER_is_not_stacked(&rgn_iter)) {
 	Set_PU_Info_tree_ptr(current_pu, rwn);
-	Write_PU_Info(current_pu);
+	Write_PU_Info(current_pu, alias_mgr);
       }
 
 

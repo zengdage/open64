@@ -94,6 +94,8 @@
 
 #ifdef BACK_END
 
+#include "opt_alias_mgr.h"
+
 #define DEFAULT_NUM_OF_PREFETCHES 64
 WN **prefetch_ldsts;
 INT num_prefetch_ldsts;
@@ -113,6 +115,11 @@ INT max_alias_cgnode_nodes;
 WN **ac_internals;
 INT num_ac_internal_nodes;
 INT max_ac_internal_nodes;
+
+#define DEFAULT_NUM_ALIAS_CLASSES_ID 128
+WN **alias_classes_id;
+INT num_alias_class_id_nodes;
+INT max_alias_class_id_nodes;
 
 #endif // BACK_END
 
@@ -342,10 +349,10 @@ IP_FILE_HDR_TABLE *IP_File_header_p;
 #include <ipa_cg.h>
 // ******************** IPA weak symbols$
 extern off_t
-ir_b_write_tree (WN *node, off_t base_offset, Output_File *fl, WN_MAP off_map, PU_Info *pu)
+ir_b_write_tree (WN *node, off_t base_offset, Output_File *fl, WN_MAP off_map, PU_Info *pu, struct ALIAS_MANAGER *alias_mgr)
 #else
 extern off_t
-ir_b_write_tree (WN *node, off_t base_offset, Output_File *fl, WN_MAP off_map)
+ir_b_write_tree (WN *node, off_t base_offset, Output_File *fl, WN_MAP off_map, struct ALIAS_MANAGER *alias_mgr)
 #endif
 {
     register OPCODE opcode;
@@ -420,6 +427,31 @@ ir_b_write_tree (WN *node, off_t base_offset, Output_File *fl, WN_MAP off_map)
 		    FmtAssert(alias_classes != NULL, ("No more memory."));
 		}
 		alias_classes[num_alias_class_nodes++] = node;
+	    }
+	}
+
+	if (Write_ALIAS_CLASS_ID_Map && alias_mgr) {
+	    if (OPCODE_is_store (opcode) ||
+		OPCODE_is_load (opcode) ||
+		(opr == OPR_LDA /* && LDA_has_ac_map_set(node) */) ||
+		opr == OPR_PARM) {
+	      set_offset = TRUE;
+	    }
+
+	    if (WN_MAP32_Get (alias_mgr->Map(), node) != 0) {
+		if (alias_classes_id == NULL) {
+		    max_alias_class_id_nodes = DEFAULT_NUM_ALIAS_CLASSES_ID;
+		    alias_classes_id = (WN **) malloc (max_alias_class_id_nodes *
+						    sizeof(WN *));
+		    FmtAssert (alias_classes_id != NULL, ("No more memory."));
+		} else if (max_alias_class_id_nodes == num_alias_class_id_nodes + 1) {
+		    max_alias_class_id_nodes *= 2;
+		    alias_classes_id = (WN **) realloc(alias_classes_id,
+						    max_alias_class_id_nodes *
+						    sizeof(WN **));
+		    FmtAssert(alias_classes_id != NULL, ("No more memory."));
+		}
+		alias_classes_id[num_alias_class_id_nodes++] = node;
 	    }
 	}
 
@@ -524,17 +556,17 @@ ir_b_write_tree (WN *node, off_t base_offset, Output_File *fl, WN_MAP off_map)
 	} else {
 	    register WN *wn = WN_first (node);
 #if defined(KEY) && !defined(FRONT_END) && !defined(IR_TOOLS)
-	    prev = ir_b_write_tree(wn, base_offset, fl, off_map, pu);
+	    prev = ir_b_write_tree(wn, base_offset, fl, off_map, pu, alias_mgr);
 #else
-	    prev = ir_b_write_tree(wn, base_offset, fl, off_map);
+	    prev = ir_b_write_tree(wn, base_offset, fl, off_map, alias_mgr);
 #endif
 	    WN_first(WN_ADDR(node_offset)) = (WN *) (INTPTR) prev;
 
 	    while (wn = WN_next(wn)) {
 #if defined(KEY) && !defined(FRONT_END) && !defined(IR_TOOLS)
-		this_node = ir_b_write_tree(wn, base_offset, fl, off_map, pu);
+		this_node = ir_b_write_tree(wn, base_offset, fl, off_map, pu, alias_mgr);
 #else
-		this_node = ir_b_write_tree(wn, base_offset, fl, off_map);
+		this_node = ir_b_write_tree(wn, base_offset, fl, off_map, alias_mgr);
 #endif
 		/* fill in the correct next/prev offsets (in place of -1) */
 		WN_next(WN_ADDR(prev + base_offset)) = (WN *) (INTPTR) this_node;
@@ -555,10 +587,10 @@ ir_b_write_tree (WN *node, off_t base_offset, Output_File *fl, WN_MAP off_map)
 	    } else {
 #if defined(KEY) && !defined(FRONT_END) && !defined(IR_TOOLS)
 		kid = ir_b_write_tree (WN_kid(node, i), base_offset,
-				       fl, off_map, pu);
+				       fl, off_map, pu, alias_mgr);
 #else
 		kid = ir_b_write_tree (WN_kid(node, i), base_offset,
-				       fl, off_map);
+				       fl, off_map, alias_mgr);
 #endif
 		WN_kid(WN_ADDR(node_offset), i) = (WN *) (INTPTR) kid;
 	    }

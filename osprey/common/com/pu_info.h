@@ -91,8 +91,10 @@
 #define WT_ALIAS_CLASS	0x8		/* alias classification */
 #define WT_SSA          0x9        /*WHIRL SSA info*/
 #define WT_ALIAS_CGNODE	0xa		/* constraint graph node */
+#define WT_ALIAS_CLASS_ID	0xb		/* alias classification id */
+#define WT_ALIAS_POINTS_TO	0xc		/* alias classification id */
 
-#define WT_SUBSECTIONS	0xb		/* number of subsection types */
+#define WT_SUBSECTIONS	0xd		/* number of subsection types */
 #define WT_PROC_SYM	-1		/* special value for proc sym state */
 
 /*
@@ -145,7 +147,7 @@ typedef struct pu_info {
 
     struct {
 	Elf64_Word offset;		/* section offset */
-	union {
+	struct {
 	    Elf64_Word size;		/* subsection size */
 	    void *ptr;			/* pointer to structure in memory */
 	} u;
@@ -225,6 +227,10 @@ typedef enum subsect_state {
      (INT32 *) PU_Info_subsect_ptr((pu), WT_FREQ)
 #define PU_Info_alias_class_ptr(pu) \
      (INT32 *) PU_Info_subsect_ptr((pu), WT_ALIAS_CLASS)
+#define PU_Info_alias_class_id_ptr(pu) \
+     (INT32 *) PU_Info_subsect_ptr((pu), WT_ALIAS_CLASS_ID)
+#define PU_Info_alias_points_to_ptr(pu) \
+     (void *) PU_Info_subsect_ptr((pu), WT_ALIAS_POINTS_TO)
 #define PU_Info_alias_cgnode_ptr(pu) \
      (INT32 *) PU_Info_subsect_ptr((pu), WT_ALIAS_CGNODE)
 #define PU_Info_ac_internal_ptr(pu) \
@@ -251,6 +257,11 @@ typedef enum subsect_state {
     PU_Info_subsect_ptr((pu), WT_ALIAS_CGNODE) = (void *) (x)
 #define Set_PU_Info_ac_internal_ptr(pu,x) \
      PU_Info_subsect_ptr((pu), WT_AC_INTERNAL) = (void *) (x)
+#define Set_PU_Info_alias_class_id_ptr(pu,x) \
+    PU_Info_subsect_ptr((pu), WT_ALIAS_CLASS_ID) = (void *) (x)
+#define Set_PU_Info_alias_points_to_ptr(pu,x) \
+    PU_Info_subsect_ptr((pu), WT_ALIAS_POINTS_TO) = (void *) (x)
+
 //set WHIRL ssa info to pu_info
 #define Set_PU_Info_ssa_ptr(pu,x) \
     PU_Info_subsect_ptr((pu), WT_SSA) = (WSSA::WHIRL_SSA_MANAGER *) (x)

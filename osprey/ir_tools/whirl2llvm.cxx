@@ -3397,6 +3397,24 @@ struct GEN_JMPTBL {
  }
 };
 
+std::vector<INT> get_alias_result_map(PU_Info *pu, WN *wn);
+
+void set_open64_alias_metadata(WN *wn, PU_Info *pu, LVINST *inst, LVCONTEXT &_context)
+{
+  std::vector<llvm::Metadata *> nodes;
+  std::vector<INT> vec = get_alias_result_map(pu, wn);
+  if (vec.size() == 0)
+    return;
+  INT count = vec.size();
+  for(INT i = 0; i < count; i++) {
+    llvm::ConstantInt *offset = llvm::ConstantInt::get(llvm::Type::getInt32Ty(_context), vec[i]);
+    llvm::ConstantAsMetadata *node = llvm::ConstantAsMetadata::get(offset);
+    nodes.push_back(node);
+  }
+  llvm::MDNode *mdnode = llvm::MDNode::get(_context, nodes);
+  inst->setMetadata(llvm::LLVMContext::MD_Open64AA, mdnode);
+}
+
 void
 WHIRL2llvm::Create_mload_formal(LVTYVEC& argstype, TY_IDX idx, PLOC& ploc, char *name, SIGNVEC *info_list)
 {
@@ -4146,6 +4164,7 @@ WHIRL2llvm::Save_to_inparm(WN *wn, const char *varname, LVVAL *rhs, INT parmidx)
   if (rhs) {
     rhs = HandleStoreDifferentType(wn, rhs, arg_addr->getAllocatedType(), is_signed);
     auto store = Lvbuilder()->CreateStore(rhs, arg_addr);
+    set_open64_alias_metadata(wn, Current_PU_Info, store, _context);
     store->setAlignment(llvm::Align(TY_align(WN_ty(wn))));
     return store;
   } else {
@@ -4155,6 +4174,7 @@ WHIRL2llvm::Save_to_inparm(WN *wn, const char *varname, LVVAL *rhs, INT parmidx)
     LVVAL *arg = Get_arg_by_name(parm_name.str().c_str());
     arg = HandleStoreDifferentType(wn, arg, arg_addr->getAllocatedType(), is_signed);
     auto store = Lvbuilder()->CreateStore(arg, arg_addr);
+    set_open64_alias_metadata(wn, Current_PU_Info, store, _context);
     store->setAlignment(llvm::Align(TY_align(WN_ty(wn))));
     return store;
   }
@@ -4196,6 +4216,7 @@ WHIRL2llvm::WN2llvmSymAct(WN *wn, ACTION act, LVVAL *rhs)
         LVTY *ld_ty = Wty2llvmty(WN_desc(wn), 0);
         if (offset != 0) Gen_displacement(wn, &gvar);
         auto load = Lvbuilder()->CreateLoad(ld_ty, gvar);
+        set_open64_alias_metadata(wn, Current_PU_Info, load, _context);
         load->setAlignment(llvm::Align(TY_align(WN_ty(wn))));
         return load;
       }
@@ -4212,6 +4233,7 @@ WHIRL2llvm::WN2llvmSymAct(WN *wn, ACTION act, LVVAL *rhs)
         LVTY *dest_ty = Wty2llvmty(desc, MTYPE_To_TY(desc));
         rhs = HandleStoreDifferentType(wn, rhs, dest_ty, MTYPE_is_signed(desc));
         auto store = Lvbuilder()->CreateStore(rhs, gvar);
+        set_open64_alias_metadata(wn, Current_PU_Info, store, _context);
         store->setAlignment(llvm::Align(TY_align(WN_ty(wn))));
         return store;
       }
@@ -4272,6 +4294,7 @@ WHIRL2llvm::WN2llvmSymAct(WN *wn, ACTION act, LVVAL *rhs)
           Is_Trace(Tracing_enabled, (TFile, "then store in %s for:\n", reg_name.c_str()));
           lv_arg = HandleStoreDifferentType(wn, lv_arg, arg_addr->getAllocatedType(), MTYPE_is_signed(WN_desc(wn)));
           auto store = Lvbuilder()->CreateStore(lv_arg, arg_addr);
+          set_open64_alias_metadata(wn, Current_PU_Info, store, _context);
           store->setAlignment(llvm::Align(TY_align(WN_ty(wn))));
           Lvbuilder()->restoreIP(cur_pos);
         } // create locvar
@@ -4289,6 +4312,7 @@ WHIRL2llvm::WN2llvmSymAct(WN *wn, ACTION act, LVVAL *rhs)
           FmtAssert(opr == OPR_LDID, ("WN2llvmSymAct: WN node should be LDID"));
           LVTY *ld_ty = Wty2llvmty(WN_desc(wn), 0);
           auto load = Lvbuilder()->CreateLoad(ld_ty, arg_addr);
+          set_open64_alias_metadata(wn, Current_PU_Info, load, _context);
           load->setAlignment(llvm::Align(TY_align(WN_ty(wn))));
           return load;
         }
@@ -4307,12 +4331,14 @@ WHIRL2llvm::WN2llvmSymAct(WN *wn, ACTION act, LVVAL *rhs)
         if (rhs) {
           rhs = HandleStoreDifferentType(wn, rhs, arg_addr->getAllocatedType(), is_signed);
           auto store = Lvbuilder()->CreateStore(rhs, arg_addr);
+          set_open64_alias_metadata(wn, Current_PU_Info, store, _context);
           store->setAlignment(llvm::Align(TY_align(WN_ty(wn))));
           return store;
         } else {
           LVVAL *arg = Get_arg_by_name(var.c_str());
           arg = HandleStoreDifferentType(wn, arg, arg_addr->getAllocatedType(), is_signed);
           auto store = Lvbuilder()->CreateStore(arg, arg_addr);
+          set_open64_alias_metadata(wn, Current_PU_Info, store, _context);
           store->setAlignment(llvm::Align(TY_align(WN_ty(wn))));
           return store;
         }
@@ -4339,6 +4365,7 @@ WHIRL2llvm::WN2llvmSymAct(WN *wn, ACTION act, LVVAL *rhs)
           LVTY *ld_ty = Wty2llvmty(WN_desc(wn), 0);
           if (offset != 0) Gen_displacement(wn, &gvar);
           auto load = Lvbuilder()->CreateLoad(ld_ty, gvar);
+          set_open64_alias_metadata(wn, Current_PU_Info, load, _context);
           load->setAlignment(llvm::Align(TY_align(WN_ty(wn))));
           return load;
         }
@@ -4348,6 +4375,7 @@ WHIRL2llvm::WN2llvmSymAct(WN *wn, ACTION act, LVVAL *rhs)
           if (offset != 0) Gen_displacement(wn, &gvar);
           rhs = HandleStoreDifferentType(wn, rhs, dest_ty, MTYPE_is_signed(WN_desc(wn)));
           auto store = Lvbuilder()->CreateStore(rhs, gvar);
+          set_open64_alias_metadata(wn, Current_PU_Info, store, _context);
           return store;
         }
       }
@@ -4382,6 +4410,7 @@ WHIRL2llvm::WN2llvmSymAct(WN *wn, ACTION act, LVVAL *rhs)
           ld_ty = Wty2llvmty(WN_desc(wn), 0);
         }
         auto load = Lvbuilder()->CreateLoad(ld_ty, addr);
+        set_open64_alias_metadata(wn, Current_PU_Info, load, _context);
         load->setAlignment(llvm::Align(TY_align(WN_ty(wn))));
         return load;
       } else {
@@ -4399,6 +4428,7 @@ WHIRL2llvm::WN2llvmSymAct(WN *wn, ACTION act, LVVAL *rhs)
 #endif
         rhs = HandleStoreDifferentType(wn, rhs, dest_ty, MTYPE_is_signed(WN_desc(wn)));
         auto store =  Lvbuilder()->CreateStore(rhs, target_addr);
+        set_open64_alias_metadata(wn, Current_PU_Info, store, _context);
         store->setAlignment(llvm::Align(TY_align(WN_ty(wn))));
         return store;
       }
@@ -4438,6 +4468,7 @@ WHIRL2llvm::WN2llvmSymAct(WN *wn, ACTION act, LVVAL *rhs)
           FmtAssert(opr == OPR_LDID, ("WN2llvmSymAct: WN node should be LDID"));
           LVTY *ld_ty = Wty2llvmty(WN_desc(wn), 0);
           auto load = Lvbuilder()->CreateLoad(ld_ty, arg_addr);
+          set_open64_alias_metadata(wn, Current_PU_Info, load, _context);
           load->setAlignment(llvm::Align(TY_align(WN_ty(wn))));
           return load;
         }
@@ -4462,6 +4493,7 @@ WHIRL2llvm::WN2llvmSymAct(WN *wn, ACTION act, LVVAL *rhs)
       FmtAssert(opr == OPR_LDID, ("WN2llvmSymAct: WN node should be LDID"));
       LVTY *ld_ty = Wty2llvmty(WN_desc(wn), 0);
       auto load = Lvbuilder()->CreateLoad(ld_ty, reg.second);
+      set_open64_alias_metadata(wn, Current_PU_Info, load, _context);
       load->setAlignment(llvm::Align(TY_align(WN_ty(wn))));
       return load;
     } else { // ACT_STR
@@ -4472,6 +4504,7 @@ WHIRL2llvm::WN2llvmSymAct(WN *wn, ACTION act, LVVAL *rhs)
       auto reg_ty = reg.second->getType();
       rhs = HandleStoreDifferentType(wn, rhs, reg.first, is_signed);
       auto store = Lvbuilder()->CreateStore(rhs, reg.second);
+      set_open64_alias_metadata(wn, Current_PU_Info, store, _context);
       store->setAlignment(llvm::Align(TY_align(WN_ty(wn))));
       return store;
     }
@@ -5086,6 +5119,7 @@ LVVAL *WHIRL2llvm::EXPR2llvm(WN *wn, WN *parent) {
     // 3. Create a load instruction to perform the actual iload
     LVTY *ld_ty = Wty2llvmty(WN_desc(wn), 0);
     auto val = Lvbuilder()->CreateLoad(ld_ty, base, ST_name(WN_st(WN_kid0(wn))));
+    set_open64_alias_metadata(WN_kid0(wn), Current_PU_Info, val, _context);
     val->setAlignment(llvm::Align(TY_align(WN_ty(wn))));
 
     res = HandleLoadImplicitCast(wn, val, lv_rtype, MTYPE_is_signed(WN_desc(wn)));
@@ -5118,6 +5152,7 @@ LVVAL *WHIRL2llvm::EXPR2llvm(WN *wn, WN *parent) {
     // 3. Create a load instruction to perform the actual iload
     LVTY *ld_ty = Wty2llvmty(desc, MTYPE_To_TY(desc));
     auto val = Lvbuilder()->CreateLoad(ld_ty, base);
+    set_open64_alias_metadata(wn, Current_PU_Info, val, _context);
     val->setAlignment(llvm::Align(TY_align(WN_ty(wn))));
 
     res = HandleLoadImplicitCast(wn, val, lv_rtype, MTYPE_is_signed(WN_desc(wn)));
@@ -5631,6 +5666,7 @@ WHIRL2llvm::STMT2llvm(WN *wn, W2LBB *lvbb)
     // LVPRINT(rhs, "ISTORE DATA");
     // LVPRINT(istr_base, "ISTORE ADDR");
     auto store = Lvbuilder()->CreateStore(rhs, istr_base);
+    set_open64_alias_metadata(wn, Current_PU_Info, store, _context);
     store->setAlignment(llvm::Align(TY_align(WN_ty(wn))));
     break;
   }

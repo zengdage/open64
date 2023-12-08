@@ -116,6 +116,7 @@ public:
   IDTYPE     Id(const WN *wn) const;
   IDTYPE     Preg_id(void) const             { return _preg_id; }
   IDTYPE     No_alias_info_id(void) const    { return _no_alias_info_id; }
+  IDTYPE     Last_alias_id(void) const       { return _last_alias_id; }
   POINTS_TO  *Pt(IDTYPE id) const            { return (*_vec)[id]; }
   ALIAS_CONTEXT Pu_context(void) const       { return _pu_context; }
   ALIAS_RULE *Rule(void)   const             { return _rule; }
