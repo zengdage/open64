@@ -20,6 +20,8 @@ CC1           = "cc142"
 WGEN          = "wgen42"
 INLINE        = "inline"
 BE            = "be"
+IPL           = "ipl"
+IPA_LINK      = "ipa_link"
 PP_OPTS       = "-D__GNUC_MINOR__=0 -D__GNUC__=10"
 CC1_OPTS      = "-Wall -fcxx-openmp -fmastiff -finline-functions-called-once -finline-functions -msse2 -dx -quiet -fpreprocessed -fbuiltin -dumpbase"
 INLINE_OPTS   = "-PHASE:v=off:x=off -PHASE:l:w:c -sw -O3 -TARG:abi=n64 -LANG:cxx_openmp=on" 
@@ -28,6 +30,10 @@ W2LL_OPTS     = "-disable_trace"
 OPT_OPTS      = "-S -licm -gvn -dfa-jump-threading -correlated-propagation -gvn -simplifycfg --loop-unroll -unroll-runtime --inline --partial-inliner --partially-inline-libcalls"
 LLC_OPTS      = "-mtriple=riscv64 -mcpu=baize -mattr=+zba,+zbb,+zbc,+zbs -target-abi lp64d --asm-verbose --debugger-tune=gdb -enable-post-misched -misched-postra"
 MAPCLANG_OPTS = "-cc1 -emit-llvm -triple x86_64-unknown-linux-gnu -D__clang__ -internal-isystem /usr/local/mastiff/include/clang/c++ -D__GNUC__=4 -D__GNUC_MINOR__=2 -internal-isystem /usr/local/mastiff/include -internal-isystem /usr/local/mastiff/include/clang -internal-isystem /usr/local/include -internal-externc-isystem /usr/include/x86_64-linux-gnu -internal-externc-isystem /include -internal-externc-isystem /usr/include -O3 -D__OPTIMIZE__ -xc" 
+IPL_OPTS      = "-PHASE:p:i -O3 -show -TENV:PIC -TARG:abi=n64 -LANG:cxx_openmp=on -LANG:=ansi_c -cmds opencc -TENV:PIC -TARG:abi=n64 -TARG:processor=anyx86 -TARG:sse2=on -TARG:mmx=on -TARG:sse=on -TARG:sse3=off -TARG:3dnow=off -TARG:sse4a=off -TARG:ssse3=off -TARG:sse41=off -TARG:sse42=off -TARG:aes=off -TARG:pclmul=off -TARG:avx=off -TARG:xop=off -TARG:fma=off -TARG:fma4=off"
+IPA_LINK_OPTS = "-INTERNAL:lang=C -ipa -keep /usr/lib/x86_64-linux-gnu/crt1.o -IPA:just_dump=on"
+BE_IPA_OPTS   = "-PHASE:v=off:x=off -PHASE:l:w:c -G8 -sw -TARG:abi=n64 -LANG:cxx_openmp=on -LANG:=ansi_c -TARG:processor=wolfdale -PHASE:c=off -WOPT:divrem=0 -LNO:simd=0 -WOPT:cfo_main=0 -TENV:ipa_ident=1702901593 -OPT:procedure_reorder=on -TENV:CPIC   -CG:enable_feedback=off -show -LANG:cxx_openmp=on -LANG:=ansi_c -TARG:processor=anyx86 -TARG:sse2=on -TARG:mmx=on -TARG:sse=on -TARG:sse3=off -TARG:3dnow=off -TARG:sse4a=off -TARG:ssse3=off -TARG:sse41=off -TARG:sse42=off -TARG:aes=off -TARG:pclmul=off -TARG:avx=off -TARG:xop=off -TARG:fma=off -TARG:fma4=off"
+BE_SYMTAB_G_OPTS = "-PHASE:l:w:c -G8 -O3 -OPT:procedure_reorder=on -TENV:CPIC -show -TARG:abi=n64 -TARG:abi=n64 -TARG:processor=anyx86 -TARG:sse2=on -TARG:mmx=on -TARG:sse=on -TARG:sse3=off -TARG:3dnow=off -TARG:sse4a=off -TARG:ssse3=off -TARG:sse41=off -TARG:sse42=off -TARG:aes=off -TARG:pclmul=off -TARG:avx=off -TARG:xop=off -TARG:fma=off -TARG:fma4=off -CG:enable_feedback=off -TENV:object_name=_test -LANG:cxx_openmp=on -LANG:=ansi_c -TARG:processor=anyx86 -TARG:sse2=on -TARG:mmx=on -TARG:sse=on -TARG:sse3=off -TARG:3dnow=off -TARG:sse4a=off -TARG:ssse3=off -TARG:sse41=off -TARG:sse42=off -TARG:aes=off -TARG:pclmul=off -TARG:avx=off -TARG:xop=off -TARG:fma=off -TARG:fma4=off"
 USE_GCC       = "-gcc"
 
 # would be fixed by the installer
@@ -50,6 +56,7 @@ DEBUG     = False
 LOG       = False 
 EMIT_LLVM = False
 AST_DUMP  = False
+IPA       = False
 STD       = ""
 VERIFY    = ""
 
@@ -93,6 +100,8 @@ def set_env():
     global WGEN
     global INLINE
     global BE
+    global IPL
+    global IPA_LINK
     global MACHINE
     global XCALCC_HOME
     global LD_LIBRARY_PATH
@@ -103,7 +112,7 @@ def set_env():
     if MACHINE == "x86_64":
         GCC = "riscv64-unknown-linux-gnu-gcc"
 
-    bin_path = os.path.abspath(which("xcalcc").rstrip("xcalcc"))
+    bin_path = os.path.dirname(os.path.abspath(__file__))
     LD_LIBRARY_PATH = os.path.join(bin_path, os.pardir, PHASEPATH)
     os.environ["LD_LIBRARY_PATH"] = LD_LIBRARY_PATH
 
@@ -115,6 +124,8 @@ def set_env():
     WGEN = os.path.join(LD_LIBRARY_PATH, WGEN)
     INLINE = os.path.join(LD_LIBRARY_PATH, INLINE)
     BE = os.path.join(LD_LIBRARY_PATH, BE)
+    IPL = os.path.join(LD_LIBRARY_PATH, IPL)
+    IPA_LINK = os.path.join(LD_LIBRARY_PATH, IPA_LINK)
 
 def has_cmd(cmd: str):
     return which(cmd) is not None
@@ -149,6 +160,7 @@ def collect_options(logger: logging.Logger, argv: List[str]) -> Tuple[List[str],
     global STD
     global EMIT_LLVM
     global AST_DUMP
+    global IPA
     global VERIFY
     opts = []
     output = ""
@@ -267,6 +279,12 @@ def collect_options(logger: logging.Logger, argv: List[str]) -> Tuple[List[str],
         action='store_true',
         help='Dump Clang AST'
     )
+    parser.add_argument(
+        '-ipa',
+        dest='ipa',
+        action='store_true',
+        help='InterProcedural Analysis'
+    )
 
 # Special case: argsparse cannot handle such options
     parser.add_argument(
@@ -302,6 +320,7 @@ def collect_options(logger: logging.Logger, argv: List[str]) -> Tuple[List[str],
     PIC = args.pic
     EMIT_LLVM = args.emit_llvm
     AST_DUMP = args.ast_dump
+    IPA = args.ipa
     files = args.files[1:]
 
     if len(files) == 0:
@@ -495,8 +514,82 @@ def be(logger: logging.Logger, f: str) -> bool:
     else:
         return True 
 
+def be_create_symtab_g(logger: logging.Logger, files: List[str]) -> List[str]:
+    res = []
+    dot_I = "b.out.ipakeep/" + rm_suffix(files[0].split('/')[-1]) + ".I"
+    dot_s = rm_suffix(files[0].split('/')[-1]) + ".s"
+    dot_G = "symtab.G"
+    cmd = BE_SYMTAB_G_OPTS.split()
+    if DEBUG == True:
+        cmd.append("-g2")
+    cmd = cmd + ["-TENV:emit_global_data=" + dot_G] + ["-fB," + dot_I, "-s", "-fs," + dot_s, files[0]]
+
+    if LOG:
+        info = BE + " " + " ".join(i for i in cmd)
+        logger.info(info)
+
+    process = subprocess.Popen([BE] + cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    out, err = process.communicate()
+
+    if process.returncode != 0:
+        logger.error(err.decode().strip())
+        sys.exit(process.returncode)
+    else:
+        for filename in os.listdir("b.out.ipakeep/"):
+            if filename.endswith(".I"):
+                if filename != "symtab.I":
+                    res.append(os.path.splitext(filename)[0])
+    return res
+
+def be_ipa(logger: logging.Logger, files: List[str]) -> List[str]:
+    res = []
+
+    for f in files:
+        name = rm_suffix(f.split('/')[-1])
+        dot_I = "b.out.ipakeep/" + rm_suffix(f.split('/')[-1]) + ".I"
+        dot_s = rm_suffix(f.split('/')[-1]) + ".s"
+        dot_G = "symtab.G"
+        cmd = BE_IPA_OPTS.split()
+        if DEBUG == True:
+            cmd.append("-g2")
+        cmd = cmd + ["-TENV:read_global_data=" + dot_G] + ["-fB," + dot_I, "-s", "-fs," + dot_s, f]
+
+        if LOG:
+            info = BE + " " + " ".join(i for i in cmd)
+            logger.info(info)
+
+        process = subprocess.Popen([BE] + cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        out, err = process.communicate()
+
+        if process.returncode != 0:
+           logger.error(err.decode().strip())
+           sys.exit(process.returncode)
+        else:
+           res.append(name)
+    return res
+
+def ipl(logger: logging.Logger, f: str) -> bool:
+   #  -fB,a.I -s -fs,a.s /media/psf/Home/code/xc5/mastiff_build/a.c
+    dot_B = rm_suffix(f.split('/')[-1]) + ".B"
+    dot_o = rm_suffix(f.split('/')[-1]) + ".o"
+    cmd = IPL_OPTS.split()
+    cmd = ["-fB," + dot_B, "-fo," + dot_o, f] + cmd
+
+    if LOG:
+        info = IPL + " " + " ".join(i for i in cmd)
+        logger.info(info)
+
+    process = subprocess.Popen([IPL] + cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    out, err = process.communicate()
+
+    if process.returncode != 0:
+        logger.error(err.decode().strip())
+        return False
+    else:
+        return True
 
 def front_end(logger: logging.Logger, opts: List[str], files: List[str]) -> List[str]:
+    global IPA
     res = []
 
     # option for using GCC front end
@@ -533,14 +626,19 @@ def front_end(logger: logging.Logger, opts: List[str], files: List[str]) -> List
             if AST_DUMP == True:
                 sys.exit(0)
 
-        ret = inline(logger, f)
-        if report_err(logger, ret, msg) == False:
-            continue
+        if IPA:
+            ret = ipl(logger, f)
+            if report_err(logger, ret, msg) == False:
+                continue
+        else:
+            ret = inline(logger, f)
+            if report_err(logger, ret, msg) == False:
+                continue
         
-        ret = be(logger, f)
-        if report_err(logger, ret, msg) == False:
-            continue
-        
+            ret = be(logger, f)
+            if report_err(logger, ret, msg) == False:
+                continue
+
         res.append(name)
 
     return res
@@ -583,6 +681,38 @@ def whirl2llvm(logger: logging.Logger, opts: List[str], files: List[str], out_fi
             sys.exit(process.returncode)
         else:
             res.append(f + suffix + ".ll")
+
+    return res
+
+def ipa_link(logger: logging.Logger, opts: List[str], files: List[str], out_file: str) -> List[str]:
+    res = []
+    opts = []
+
+    suffix = ".o"
+    opts = opts + IPA_LINK_OPTS.split()
+
+    outfile = "b.out"
+    cmd = opts + ["-o", outfile]
+
+    for f in files:
+        cmd = cmd + [f + suffix]
+
+    if LOG:
+        info = IPA_LINK + " " + " ".join(i for i in cmd)
+        logger.info(info)
+
+    process = subprocess.Popen([IPA_LINK] + cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    out, err = process.communicate()
+
+    if process.returncode != 0:
+        logger.error(err.decode().strip())
+        sys.exit(process.returncode)
+
+    if process.returncode != 0:
+        logger.error(err.decode().strip())
+        sys.exit(process.returncode)
+    else:
+        res.append("symtab.c")
 
     return res
 
@@ -709,6 +839,12 @@ def compile(logger: logging.Logger, opts: List[str], files: List[str], output: s
         sys.exit(1)
 
     res = front_end(logger, opts, src)
+
+    if IPA:
+        res = ipa_link(logger, opts, res, output)
+        res = be_create_symtab_g(logger, res)
+        res = be_ipa(logger, res)
+
     res = whirl2llvm(logger, opts, res, output)
     res = opt(logger, opts, res, output)
 
