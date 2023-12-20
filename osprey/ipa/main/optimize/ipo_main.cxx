@@ -2853,6 +2853,9 @@ Perform_Interprocedural_Optimization (void)
     exit(RC_OKAY);
   }
 
+  if (IPA_Enable_Just_Dump) {
+    exit(RC_OKAY);
+  }
   if (IPA_Enable_ipacom && !IPA_Enable_AOT) {
 #ifdef Is_True_On
       CGB_IPA_Terminate();

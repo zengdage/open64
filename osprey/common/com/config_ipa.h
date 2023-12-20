@@ -270,6 +270,7 @@ extern BOOL     IPA_Enable_Inline_Struct_Array_Actual;   /* Enable inlining of P
 extern BOOL     IPA_Enable_Inline_Var_Dim_Array;   /* Enable inlining of PU with param that is variable-dimensioned array */
 extern BOOL     IPA_Enable_Reorder;   /*Enable structure field reordering */
 extern BOOL     IPA_Enable_AOT;       /* Enable AOT */
+extern BOOL     IPA_Enable_Just_Dump; /* Enable Just Dump Whirl IR */
 #ifdef KEY
 typedef enum
 {

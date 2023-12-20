@@ -361,6 +361,7 @@ BOOL IPA_Enable_Whole_Program_Mode_Set = FALSE;
 
 BOOL IPA_Enable_Scale = FALSE;
 BOOL IPA_Enable_AOT = FALSE;
+BOOL IPA_Enable_Just_Dump = FALSE;
 
 static OPTION_DESC Options_IPA[] = {
     { OVK_BOOL,	OV_VISIBLE,	FALSE, "addressing",	"",
@@ -698,6 +699,9 @@ static OPTION_DESC Options_IPA[] = {
     { OVK_BOOL, OV_VISIBLE,     FALSE, "aot", "",
       0, 0, 0,              &IPA_Enable_AOT, NULL,
       "Enable AOT compilation"},
+    { OVK_BOOL, OV_VISIBLE,     FALSE, "just_dump", "",
+      0, 0, 0,              &IPA_Enable_Just_Dump, NULL,
+      "Just Dump Whirl IR"},
     /* The following option is temporary, and should be removed soon */
     { OVK_UINT32, OV_INTERNAL,	FALSE, "update_struct",	"",
 	  0, 0, UINT32_MAX, &IPA_Update_Struct, NULL,
