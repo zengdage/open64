@@ -3299,12 +3299,16 @@ CODEMAP::Add_expr(WN *wn, OPT_STAB *opt_stab, STMTREP *stmt, CANON_CR *ccr,
       INT64 ofst;
       ST *lda_st;
       ST *wn_st = opt_stab->St(WN_aux(wn));
+#if 0
       if (_phase == MAINOPT_PHASE &&
           (! opt_stab->Is_up_level_var(wn_st) || WOPT_Enable_Canon_Uplevel)) {
 	Expand_ST_into_base_and_ofst(wn_st,
 				     opt_stab->St_ofst(WN_aux(wn)), &lda_st, &ofst);
         ccr->Set_scale(ofst);
         ofst = 0;
+#else
+      if (0) {
+#endif
       } else {
 	lda_st = opt_stab->St(WN_aux(wn));
 	ofst = opt_stab->St_ofst(WN_aux(wn));

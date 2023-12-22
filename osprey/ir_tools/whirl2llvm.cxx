@@ -117,6 +117,7 @@ BOOL Run_vsaopt = FALSE;      // hack to workaround undefine since
 #endif
 
 #define ALIGNMENT_DOWN(a, size) (a & (~(size-1)))
+#define ALIGNMENT_UP(a, size) ((a + (size - 1)) & (~(size-1)))
 
 static INT Compiler_Line = 0;
 static const char *Compiler_File = NULL;
@@ -616,8 +617,13 @@ typedef std::vector<PREGPAIR>               PREGMAP;
 typedef std::vector<AGGMAP>                 AGMVEC;
 typedef std::vector<INT>                    INTVEC;
 typedef std::unordered_map<ST*, LVVAL*>     ST2LVVAL;
+typedef std::unordered_map<ST*, LVGLBVAR*>  ST2LVGLBVAR;
 typedef std::vector<W2LFILE>                W2LFILEVEC;
 typedef std::vector<std::string>            STRVEC;
+typedef std::unordered_map<ST*, char*>      ST2CHAR;
+typedef std::unordered_map<LVCONST*, ST*>   LVCONST2ST;
+typedef std::unordered_map<ST*, LVCONST*>   ST2LVCONST;
+typedef std::vector<ST *>                   STVEC;
 
 static BOOL ENABLE_TRACE = TRUE;
 template<typename T>
@@ -927,6 +933,11 @@ private:
   STRVEC       _inc_dirs;   // vector of INCLUDE_DIRECTORIES
   LVGLBVAR    *_glb_ctors;  // llvm.global_ctors builtin array
   LVCONSTVEC   _glb_init_registry;  // the vector of global ctors' registry
+  ST2LVGLBVAR  _st_need_init;
+  ST2CHAR      _glbblks;    // map global class_blk to its ptr
+  std::unordered_map<ST*, LVCONSTVEC *> _blk_constants;
+  LVCONST2ST   _lvconst_st;
+  ST2LVCONST   _st_lvconst;
 
   // constant strings
   CONSTSTR PARM_PREG = "_w2ll_parm_preg_";          // prefix for formal parameter
@@ -1023,6 +1034,145 @@ public:
     if (it == _variables.end())
       return nullptr;
     return it->second;
+  }
+
+  void      Lvconst2ST(LVCONST *val, ST *st) {
+    FmtAssert(_lvconst_st.find(val) == _lvconst_st.end(),
+              ("Lvconst2ST: Val %p already exists", val));
+    _lvconst_st.insert(std::make_pair(val, st));
+  }
+
+  ST *Lvconst2ST(LVCONST *val) {
+    LVCONST2ST::iterator it = _lvconst_st.find(val);
+    if (it == _lvconst_st.end())
+      return nullptr;
+    return it->second;
+  }
+  void      ST2Lvconst(ST *st, LVCONST *val) {
+    FmtAssert(_st_lvconst.find(st) == _st_lvconst.end(),
+              ("ST2Lvconst: st %s already exists", ST_name(st)));
+    _st_lvconst.insert(std::make_pair(st, val));
+  }
+
+  LVCONST *ST2Lvconst(ST *st) {
+    ST2LVCONST::iterator it = _st_lvconst.find(st);
+    if (it == _st_lvconst.end())
+      return nullptr;
+    return it->second;
+  }
+
+  void ST2LVCONSTVEC(ST *st, LVCONSTVEC *val) {
+    FmtAssert(_blk_constants.find(st) == _blk_constants.end(),
+              ("ST2LVCONSTVEC: ST %s already exists", ST_name(st)));
+    _blk_constants.insert(std::make_pair(st, val));
+  }
+
+  LVCONSTVEC    *ST2LVCONSTVEC(ST *st) {
+    std::unordered_map<ST*, LVCONSTVEC *>::iterator it = _blk_constants.find(st);
+    if (it == _blk_constants.end())
+      return nullptr;
+    return it->second;
+  }
+
+  static bool STVEC_Comp(const ST *a, const ST *b) {
+    if (!a || !b)
+      return false;
+    return ST_ofst(a) < ST_ofst(b);
+  }
+
+  void ST2LVCONSTVEC(void) {
+    LVTY *lv_elem_ty = LVTY::getInt8Ty(Context());
+
+    for(auto &kv : _blk_constants) {
+      ST *base_st = kv.first;
+      const char *varname = ST_name(base_st);
+
+      LVCONSTVEC *constants = ST2LVCONSTVEC(base_st);
+      if (!constants->empty()) {
+        STVEC stvec;
+        for(unsigned i = 0; i < constants->size(); i++) {
+          for(auto &st2lvconst : _st_lvconst) {
+            if (st2lvconst.second == (*constants)[i]) {
+              if (std::find(stvec.begin(), stvec.end(), st2lvconst.first) == stvec.end())
+                stvec.push_back(st2lvconst.first);
+            }
+          }
+        }
+        sort(stvec.begin(), stvec.end(), STVEC_Comp);
+
+        LVCONSTVEC order;
+        int debug_offset = 0;
+        for(unsigned i = 0; i < stvec.size(); i++) {
+          int padding = 0;
+          if (i < (stvec.size() - 1))
+            padding = ST_ofst(stvec[i + 1]) - (ST_size(stvec[i]) + ST_ofst(stvec[i]));
+          order.push_back(ST2Lvconst(stvec[i]));
+          if (padding) {
+            char *str = new char[padding];
+            memset(str, 0, padding);
+            LVCONST *pad_val = llvm::ConstantDataArray::getRaw(
+                llvm::StringRef(str, padding), padding, lv_elem_ty);
+            delete str;
+            order.push_back(pad_val);
+          }
+          // printf("%d --%d <%d, %s>\n", i, debug_offset, ST_ofst(stvec[i]), ST_name(stvec[i]));
+          debug_offset += padding + ST_size(stvec[i]);
+        }
+
+        LVCONST *_blk_const = llvm::ConstantStruct::getAnon(order);
+        LVGLBVAR *gvar = Create_glbvar(_blk_const->getType(), varname, llvm::GlobalValue::InternalLinkage);
+        gvar->setInitializer(_blk_const);
+      } else {
+        BLK *blk = &(Blk_Table[ST_blk(base_st)+1]);
+        char *str = new char[blk->Size()];
+        memset(str, 0, blk->Size());
+        LVCONST *const_val = llvm::ConstantDataArray::getRaw(
+            llvm::StringRef(str, blk->Size()), blk->Size(), lv_elem_ty);
+        delete str;
+
+        auto *GV = new llvm::GlobalVariable(*(Module()), const_val->getType(), true,
+            llvm::GlobalValue::PrivateLinkage, const_val, varname);
+        GV->setUnnamedAddr(llvm::GlobalValue::UnnamedAddr::Global);
+        GV->setAlignment(llvm::Align());
+
+        Put_glbvar(varname, GV);
+      }
+    }
+  }
+
+  void      ST2NeedInit(ST *st, LVGLBVAR *val) {
+    FmtAssert(_st_need_init.find(st) == _st_need_init.end(),
+              ("ST2lvval: ST %s already exists", ST_name(st)));
+    _st_need_init.insert(std::make_pair(st, val));
+  }
+
+  LVGLBVAR    *ST2NeedInit(ST *st) {
+    ST2LVGLBVAR::iterator it = _st_need_init.find(st);
+    if (it == _st_need_init.end())
+      return nullptr;
+    return it->second;
+  }
+
+  void ST2NeedInit(void) {
+    for(auto &kv : _st_need_init) {
+      ST *st = kv.first;
+      LVGLBVAR *gvar = kv.second;
+      ST *base = ST_base(st);
+
+      INITV_IDX val = ST_has_initv(st);
+      LVCONST *constVal = INITV2llvm(Initv_Table[val], ST_type(st));
+
+      gvar->setInitializer(constVal);
+
+      LVCONSTVEC *const_vec = ST2LVCONSTVEC(base);
+      if (!const_vec) {
+        const_vec = new LVCONSTVEC();
+        ST2LVCONSTVEC(base, const_vec);
+      }
+      const_vec->push_back(constVal);
+      //Lvconst2ST(constVal, st);
+      ST2Lvconst(st, constVal);
+    }
   }
 
   LVFUNC *ST2func(ST *st) {
@@ -4591,15 +4741,34 @@ void ST2llvm::operator() (UINT idx, ST *st) const {
   }
   if (st->sym_class == CLASS_CONST) {
     TCON &tcon = Tcon_Table[ST_tcon(st)];
+    LVCONST *const_val = nullptr;
     auto tcon_str_idx = TCON_str_idx(tcon);
+
     if ((TCON_ty(tcon) == MTYPE_STR) && tcon_str_idx) {
       const char *str = Index_to_char_array(tcon_str_idx);
-      LVCONST *const_val = llvm::ConstantDataArray::getString(whirl2llvm->Context(), str);
-      auto *GV = new llvm::GlobalVariable(*(whirl2llvm->Module()), const_val->getType(), true,
-                              llvm::GlobalValue::PrivateLinkage, const_val);
-      GV->setUnnamedAddr(llvm::GlobalValue::UnnamedAddr::Global);
-      GV->setAlignment(llvm::Align());
-      whirl2llvm->ST2const(st, GV);
+      const_val = llvm::ConstantDataArray::getString(whirl2llvm->Context(), str);
+    } else {
+      //const_val = whirl2llvm->TCON2llvm(ST_tcon(st), ST_type(st));
+    }
+
+    if ((TCON_ty(tcon) == MTYPE_STR) && tcon_str_idx) {
+    auto *GV = new llvm::GlobalVariable(*(whirl2llvm->Module()), const_val->getType(), true,
+                        llvm::GlobalValue::PrivateLinkage, const_val);
+    GV->setUnnamedAddr(llvm::GlobalValue::UnnamedAddr::Global);
+    GV->setAlignment(llvm::Align());
+    whirl2llvm->ST2const(st, GV);
+
+    ST *base_st = ST_base(st);
+    if (base_st && base_st != st && base_st->sym_class == CLASS_BLOCK) {
+      LVCONSTVEC *const_vec = whirl2llvm->ST2LVCONSTVEC(base_st);
+      if (!const_vec) {
+        const_vec = new LVCONSTVEC();
+        whirl2llvm->ST2LVCONSTVEC(base_st, const_vec);
+      }
+      const_vec->push_back(const_val);
+      //whirl2llvm->Lvconst2ST(const_val, st);
+      whirl2llvm->ST2Lvconst(st, const_val);
+    }
     }
     return;
   }
@@ -4674,7 +4843,15 @@ void ST2llvm::operator() (UINT idx, ST *st) const {
     }
     case SCLASS_EXTERN: {
       /* Global variable specified with extern */
-      gvar = whirl2llvm->Create_glbvar(tyid, tyidx, varname, llvm::GlobalValue::ExternalLinkage);
+      if (ST_base(st) != st) {
+        gvar = whirl2llvm->Create_glbvar(tyid, tyidx, varname, llvm::GlobalValue::InternalLinkage);
+        if (!ST_has_initv(st)) {
+          SetZeroInitializer(gvar, gvar->getValueType(), st);
+        }
+      }
+      else
+        gvar = whirl2llvm->Create_glbvar(tyid, tyidx, varname, llvm::GlobalValue::ExternalLinkage);
+
       whirl2llvm->ST2lvval(st, gvar);
       // set alignment
       gvar->setAlignment(llvm::MaybeAlign(TY_align(tyidx)));
@@ -4745,16 +4922,29 @@ void ST2llvm::operator() (UINT idx, ST *st) const {
     // create alias of the var
     // TODO: refactor this piece of code
     ST *base = ST_base(st);
-    if (gvar && (base != st) && (ST_ofst(st) == 0)) {
+    if (gvar && (base != st)) {
       char *name = ST_name(base);
 
       // ignore section names
       if (base->storage_class == SCLASS_UNKNOWN) return;
+      if (base->sym_class == CLASS_BLOCK) {
+        LVCONSTVEC *const_vec = whirl2llvm->ST2LVCONSTVEC(base);
+        if (!const_vec) {
+          const_vec = new LVCONSTVEC();
+          whirl2llvm->ST2LVCONSTVEC(base, const_vec);
+        }
 
-      if (whirl2llvm->Module()->getGlobalVariable(name) == nullptr) {
-        LVGLBVAR *alias = whirl2llvm->Create_glbvar(gvar->getValueType(), name, gvar->getLinkage());
-        SetZeroInitializer(alias, alias->getValueType(), base);
-        whirl2llvm->ST2lvval(base, alias);
+        if (INITV_IDX val = ST_has_initv(st)) {
+          whirl2llvm->ST2NeedInit(st, gvar);
+        }
+        return;
+      }
+      if (ST_ofst(st) == 0) {
+        if (whirl2llvm->Module()->getGlobalVariable(name) == nullptr) {
+          LVGLBVAR *alias = whirl2llvm->Create_glbvar(gvar->getValueType(), name, gvar->getLinkage());
+          SetZeroInitializer(alias, alias->getValueType(), base);
+          whirl2llvm->ST2lvval(base, alias);
+        }
       }
     }
 
@@ -4844,8 +5034,13 @@ void ST2llvm::operator() (UINT idx, ST *st) const {
       auto val = llvm::ConstantStruct::get(elem_ty, vals);
       whirl2llvm->Add_glb_init_info(val);
     }
-  }
-  else {
+  } else if (st->sym_class == CLASS_BLOCK) {
+    LVCONSTVEC *const_vec = whirl2llvm->ST2LVCONSTVEC(st);
+    if (!const_vec) {
+      const_vec = new LVCONSTVEC();
+      whirl2llvm->ST2LVCONSTVEC(st, const_vec);
+    }
+  } else {
     // FmtAssert(FALSE, ("ST2llvm::operator(), NYI"));
   }
 }
@@ -6979,6 +7174,8 @@ ir_b2a (char *global_file,
 
     // translate global symbols
     For_all (St_Table, GLOBAL_SYMTAB, ST2llvm(&driver));
+    driver.ST2NeedInit();
+    driver.ST2LVCONSTVEC();
 
     // translate the function bodies
     driver.Setup_be_scope();
