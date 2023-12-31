@@ -5262,6 +5262,33 @@ LVVAL *WHIRL2llvm::EXPR2llvm(WN *wn, WN *parent) {
     LVVAL  *opnd = EXPR2llvm(WN_kid0(wn));
     TYPE_ID mtype = WN_rtype(wn);
     TYPE_ID dtype = WN_desc(wn);
+    OPCODE opc = WN_opcode(wn);
+    TYPE_ID to_type = mtype;
+    INT16 cvtl_bits = WN_cvtl_bits(wn);
+    if (mtype == MTYPE_I1 || mtype == MTYPE_I2 ||
+        mtype == MTYPE_I4 || mtype == MTYPE_I8) {
+      int num = (cvtl_bits >> 3);
+      if (num == 1)
+        to_type = MTYPE_I1;
+      else if (num == 2)
+        to_type = MTYPE_I2;
+      else if (num == 4)
+        to_type = MTYPE_I4;
+      else if (num == 8)
+        to_type = MTYPE_I8;
+    } else if(mtype == MTYPE_U1 || mtype == MTYPE_U2 ||
+              mtype == MTYPE_U4 || mtype == MTYPE_U8) {
+      int num = (cvtl_bits >> 3);
+      if (num == 1)
+        to_type = MTYPE_U1;
+      else if (num == 2)
+        to_type = MTYPE_U2;
+      else if (num == 4)
+        to_type = MTYPE_U4;
+      else if (num == 8)
+        to_type = MTYPE_U8;
+    }
+    mtype = to_type;
     LVTY   *resty = Wty2llvmty(mtype, WN_ty(wn));
 
     auto opnd_type = opnd->getType();

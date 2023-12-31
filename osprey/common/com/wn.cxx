@@ -1419,6 +1419,7 @@ WN_CreateStid (OPERATOR opr, TYPE_ID rtype, TYPE_ID desc,
 
 	value_opc = WN_opcode(value);
 
+#if 0
 	if (    (    (    WN_operator(value) == OPR_CVTL
                        || WN_operator(value) == OPR_CVT )
                   && WN_cvtl_bits(value) == ty_size * 8 )
@@ -1428,6 +1429,7 @@ WN_CreateStid (OPERATOR opr, TYPE_ID rtype, TYPE_ID desc,
                        || value_opc == OPC_U4U8CVT )
                   && ty_size < 8 ) )
 	    value = WN_kid0(value);
+#endif
     }
 
     if (FE_Store_Opt && ST_class(st) != CLASS_PREG &&
