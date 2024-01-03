@@ -80,7 +80,8 @@ default: jfe
 jfe: verify_intrn_entry_def b2whirlcmake b2w_soot_gradle copyjfescript
 
 // please update this variable, after change intrn_entry.def, use: md5sum intrn_entry.def | awk '{print $1}'
-SAVED_CHECK_SUM := ce23b176f49d5af512c4eea30dbf2480
+#SAVED_CHECK_SUM := ce23b176f49d5af512c4eea30dbf2480
+SAVED_CHECK_SUM := b94644345f61a3b025f52ec21f1a0118
 CURRENT_CHECK_SUM := $(shell md5sum $(BUILD_TOT)/common/com/intrn_entry.def | awk '{print $$1}')
 
 verify_intrn_entry_def:

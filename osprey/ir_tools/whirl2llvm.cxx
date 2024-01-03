@@ -3638,6 +3638,7 @@ WHIRL2llvm::Handle_intrn_call(WN *wn) {
     case INTRN_MEMCCPY: func_name = "memccpy"; break;
     case INTRN_MEMMOVE: func_name = "memmove"; break;
     case INTRN_I4EXIT:  func_name = "exit"; break;
+    case INTRN_ABORT:   func_name = "abort"; break;
     default:
       FmtAssert(FALSE, ("WHIRL2llvm::Handle_intrn_call: unexpected intrinsic"));
   }
@@ -5890,6 +5891,7 @@ WHIRL2llvm::STMT2llvm(WN *wn, W2LBB *lvbb)
         FmtAssert(res == nullptr, ("STMT2llvm: INTRINSIC_CALL should return nullptr"));
         break;
       }
+      case INTRN_ABORT:
       case INTRN_I4EXIT:
       case INTRN_VEXIT: {
         // __builtin_unreachable()
